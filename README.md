@@ -11,8 +11,6 @@ prerequisites:
 -led use "pip install platform socket subprocess os"
 * In windows older version of TortoiseSVN "svn" command line is not enabled by
 default, Re install TortosiseSVN and select command line svn in setup config
-TODO: 1.Create a function which checks all above things if not found do the above
-chages with user permission 
 
 script usage:
 python autocommit.py <[Folder path] [--destinatio = <SVN Destination path>] [
@@ -31,5 +29,7 @@ path
    TIP: To check status use "tail -f nohup.out"
 
 TODO:
-2. user name passowrd handling guidelines
-3. For running background use 'exec' or write background sckip
+* user name passowrd handling guidelines
+* For running background use 'exec' or write background sckip
+* Create a function which checks all prerequisites things if not found do the 
+above chages with user permission 
