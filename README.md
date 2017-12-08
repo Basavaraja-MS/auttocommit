@@ -22,10 +22,10 @@ path
 
  For running in background
  * Windows:
-   pythonw autocommit.py 
+   "pythonw autocommit.py" 
 
  * Linux:
-   nohup python autocommit.py& 
+   "nohup python autocommit.py&" 
    TIP: To check status use "tail -f nohup.out"
 
 TODO:
