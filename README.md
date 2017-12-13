@@ -33,3 +33,7 @@ TODO:
 * For running background use 'exec' or write background sckip
 * Create a function which checks all prerequisites things if not found do the 
 above chages with user permission 
+* Create the debug log case
+* Impliment try and catch scenario for robust functioning 
+of script 
+* Start and Kill option wraper

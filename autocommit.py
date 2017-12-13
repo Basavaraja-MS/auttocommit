@@ -1,25 +1,22 @@
 #!/usr/bin/python
 import time
-from watchdog.observers import Observer
-from watchdog.events import FileSystemEventHandler
-from watchdog.events import PatternMatchingEventHandler
-
-count=0
-user_path = "/media/basavam/autocommit/git_gateway/Helloworld/master"
-user_path_svn = "/media/basavam/autocommit/sw"
-FORCE = "-f" # user is resposible for activating this
-
-class MyHandler(FileSystemEventHandler):
-    def on_modified(self, event):
-        global count
-        count += 1
-        print (count)
-
+import sys
 import platform
 import socket
 import os
 import subprocess
 
+
+from watchdog.observers import Observer
+from watchdog.events import FileSystemEventHandler
+from watchdog.events import PatternMatchingEventHandler
+
+class Module_ReturnValue(object):
+    def __init__(self, Status, Message, Error_Code, Warning_Codes):
+        self.Status = Status
+        self.Message = Message
+        self.Error_Code = Error_Code
+        self.Warning_Codes = Warning_Codes
 
 def github_chekin():
     hostname = socket.gethostname()
@@ -34,60 +31,61 @@ def github_chekin():
     retval = os.system("git push -f")
     print retval 
 
-def svn_chekin():
-    print("Chekin:")
+def svn_checkin(src_path):
+    print "Checkin:"
     hostname = socket.gethostname()
     osused = platform.system()
-    os.chdir(user_path_svn)
-    #retval = os.system("svn ci --force-log --username basavam -m " + "Test commits " + user_path_svn)
-    cmd = "svn ci --force-log --username basavam -m "     + "Test commits " + user_path_svn
-    p = subprocess.Popen(['svn', 'ci', '-m', 'cmd'])
+    message = "Host: " + hostname + "OS: " + osused 
+    p = subprocess.Popen(['svn', 'ci', '-m', "Test message on ci"])
     p.wait()
 
 def svn_add(src_path):
     hostname = socket.gethostname()
     osused = platform.system()
-    os.chdir(user_path_svn)
     retval = os.system("svn add --force " + src_path)
     return retval
 
 def svn_remove(src_path):
     hostname = socket.gethostname()
     osused = platform.system()
-    os.chdir(user_path_svn)
     retval = os.system("svn del --force " + src_path)
+    print"svn del:", retval
     return retval
 
-def svn_clone():
+def svn_clone(src_path):
     print "Clone will be taken care later"
 
-def svn_up():
-    print"svn up:"
-    retval = os.system("svn up --force " + user_path_svn)
-    print retval
+def svn_up(src_path, server_path):
+    retval = os.system("svn up --force " + src_path)
+    print "svn up:", retval
+    return retval 
 
-def svn_init():
-    svn_clone()
-    svn_up()
+def svn_init(user_path, server_path):
+    os.chdir(user_path)
+    svn_clone(server_path)
+    svn_up(user_path, server_path)
+    svn_ignore(user_path)
 
-def svn_ignore():
+def svn_ignore(usr_path):
     print "svn ignore will be called"
-    os.chdir(user_path_svn)
-    os.system("svn propset svn:ignore *.swx " + user_path_svn)
-    os.system("svn propset svn:ignore *.swp " + user_path_svn)
+    os.chdir(usr_path)
+    os.system("svn propset svn:ignore *.swx " + usr_path)
+    os.system("svn propset svn:ignore *.swp " + usr_path)
+    os.system("svn propset svn:ignore dirname .svn "  + usr_path)
 
 class watchdogHandler(PatternMatchingEventHandler):
+#TODO: Need to check and change
+
     def __init__(self):
         self._patterns = None
         self._ignore_patterns = ["*.swp", "*.swx"]
-        self._ignore_directories=None
+        self._ignore_directories=["xtensa_ivp"]
         self._case_sensitive = False
-        svn_init()
-        svn_ignore() 
+
     def process(self, event):
         if event.event_type == 'modified':
             print 'Modified', event.src_path
-            svn_chekin()
+            svn_checkin(event.src_path)
         elif event.event_type == 'created':
             print 'Created', event.src_path
             svn_add(event.src_path)
@@ -108,24 +106,106 @@ class watchdogHandler(PatternMatchingEventHandler):
     def on_deleted(self, event):
         self.process(event)
 
+import argparse
+
+def get_args():
+    phrase = argparse.ArgumentParser(description='SVN autocommit tool')
+    phrase.add_argument(
+        '-p', '--path', type=str, help='user source path')
+    phrase.add_argument(
+        '-d', '--destination', type=str, help='Destination svn path')
+    phrase.add_argument(
+        '-i', '--ignore', type=str, help='Files to be ignored')
+    phrase.add_argument(
+        '-r', '--recursive', type=str, help='Recursive search enabled')
+    phrase.add_argument(
+        '-f', '--force', type=str, help='Enable forced operations')
+    phrase.add_argument(
+        '-s', '--sleep', type=int, help='Sleep time in ms')
+    args = phrase.parse_args()
+    return args
+
+def set_args(usr_cmds, deflt_cmds):
+    if usr_cmds.destination != None:
+        deflt_cmds["USER_PATH"] = usr_cmds.path
+    if usr_cmds.destination != None:
+        deflt_cmds["DEST"] = usr_cmds.destination
+    if usr_cmds.ignore != None:
+        deflt_cmds["IGNORE"] = usr_cmds.ignore.split(",")
+    if usr_cmds.recursive != None:
+        deflt_cmds["RECURSIVE"] = usr_cmds.recursive
+    if usr_cmds.force != None:
+        deflt_cmds["FORCE"] = usr_cmds.force
+    if usr_cmds.sleep != None:
+        deflt_cmds["SLEEP"] = usr_cmds.sleep
+    return deflt_cmds
+
+def svn_sanity_check(user_path, server_path):
+    try:
+        os.chdir(user_path)
+    except Exception:
+        msg = "SVN Autocommit: user path not exists"
+        Failure = True
+        Error_code  = 81.0
+        return Module_ReturnValue(Failure, msg, Error_Code, Warning_Code_list)
+
+    try:
+        os.system("svn info " + server_path)
+    except Exception:
+        msg = "SVN Autocommit: SVN path not exist"
+        Failure = True
+        Error_code  = 81.1
+        return Module_ReturnValue(Failure, msg, Error_Code, Warning_Code_list)
 
 
-if __name__ == "__main__":
-    #event_handler = MyHandler()
+def app_init():
+    commands = {
+                    "USER_PATH" : "/media/basavam/autocommit/sw",
+                    "DEST"      : "http://10.246.128.9/svnserintf/Standard/Validation/IP/sw/",
+                    "IGNORE"    : "*.swp " "*.swx " "*.swa " ".svn",
+                    "RECURSIVE" : "yes",
+                    "FORCE"     :"no",
+                    "SLEEP"     :60
+                }
+    return commands
+
+def svn_main():
+    deflt_cmds = app_init()
+    
+    try:
+         usr_cmds = get_args()
+    except Exception:
+        msg = "SVN Autocommit: Error in command phrasing"
+        Failure = True
+        Error_code  = 80.0
+        return Module_ReturnValue(Failure, msg, Error_Code, Warning_Code_list)
+
+    commands = set_args(usr_cmds, deflt_cmds)
+
+    svn_sanity_check(commands["USER_PATH"], commands["DEST"])
+
+    svn_init(commands["USER_PATH"], commands["DEST"])
     event_handler = watchdogHandler()
     observer = Observer()
-    observer.schedule(event_handler, 
-			path='.' if user_path_svn == "" else user_path_svn,
-			recursive=False)
+
+    try:
+        observer.schedule(event_handler, 
+			path = commands["USER_PATH"],
+			recursive=True)
+    except Exception:
+        msg = "SVN Autocommit: Error in job scheduling"
+        Failure = True
+        Error_code  = 82.0
+        return Module_ReturnValue(Failure, msg, Error_Code, Warning_Code_list)
+
     observer.start()
     while True:
         time.sleep(60)
     observer.join()
-"""
-    try:
-        while True:
-            time.sleep(1)
-    except KeyboardInterrupt:
-        observer.stop()
-"""
 
+#While writing CLI enable below comments
+
+"""
+if __name__ == "__main__":
+    svn_main() 
+"""
