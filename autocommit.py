@@ -31,56 +31,89 @@ def github_chekin():
     retval = os.system("git push -f")
     print retval 
 
+def FORCE(command):
+    print "Comming"
+    if command["FORCE"] == "yes":
+        print "Comming here and crash"
+        return " --force "
+    else:
+        return ""
+
+def RECURSIVE(command):
+    if command["RECURSIVE"] == "yes":
+        return " --recursive "
+    else:
+        return ""
+
 def svn_checkin(src_path):
     print "Checkin:"
     hostname = socket.gethostname()
     osused = platform.system()
     message = "Host: " + hostname + "OS: " + osused 
-    p = subprocess.Popen(['svn', 'ci', '-m', "Test message on ci"])
+    p = subprocess.Popen(['svn', 'ci', '-m', str(message)])
     p.wait()
 
 def svn_add(src_path):
+    global gCommands
     hostname = socket.gethostname()
     osused = platform.system()
-    retval = os.system("svn add --force " + src_path)
+    #TODO:
+    #cmd = "svn add " + FORCE(gCommands)+ RECURSIVE(gCommands) + src_path
+    cmd = "svn add --force " + src_path
+    retval = os.system(cmd)
     return retval
 
 def svn_remove(src_path):
+    global gCommands
     hostname = socket.gethostname()
     osused = platform.system()
-    retval = os.system("svn del --force " + src_path)
+    #TODO:
+    #cmd = "svn del " + FORCE(gCommands) + src_path
+    cmd = "svn del --force " + src_path
+    retval = os.system(cmd)
     print"svn del:", retval
     return retval
 
-def svn_clone(src_path):
-    print "Clone will be taken care later"
+def svn_checkout(src_path):
+    #TODO: Check it we need to enter directory or not
+    retval = os.system("svn chekout " + src_path)
+    print "SVN chekout:", retval
+    return retval
 
-def svn_up(src_path, server_path):
-    retval = os.system("svn up --force " + src_path)
+def svn_up(command):
+    cmd = "svn up " +  command["USER_PATH"] + FORCE(command)
+    retval = os.system(cmd)
     print "svn up:", retval
     return retval 
 
-def svn_init(user_path, server_path):
-    os.chdir(user_path)
-    svn_clone(server_path)
-    svn_up(user_path, server_path)
-    svn_ignore(user_path)
 
-def svn_ignore(usr_path):
-    print "svn ignore will be called"
-    os.chdir(usr_path)
-    os.system("svn propset svn:ignore *.swx " + usr_path)
-    os.system("svn propset svn:ignore *.swp " + usr_path)
-    os.system("svn propset svn:ignore dirname .svn "  + usr_path)
+def svn_ignore(command):
+    print "SVN autocommit: Ignored"
+    for ignore_str in command["IGNORE"].split():
+        cmd = "svn propset svn:ignore " + ignore_str + " " + command["USER_PATH"] + FORCE(command) + RECURSIVE(command)
+        os.system(cmd)
+
+
+def svn_app_init(command):
+    os.chdir(command["USER_PATH"])
+    try:
+        os.system("svn info")
+        print "SVN autocmmit: Updating local repo"
+        svn_up(command)
+    except Exception:
+        print "SVN autocommit: Creating local repo"
+        svn_checkout(command["DEST"])
+    svn_ignore(command)
 
 class watchdogHandler(PatternMatchingEventHandler):
 #TODO: Need to check and change
 
     def __init__(self):
         self._patterns = None
-        self._ignore_patterns = ["*.swp", "*.swx"]
-        self._ignore_directories=["xtensa_ivp"]
+        self._ignore_patterns = ["*.swp", "*.swx", 'entries', 'format', 'pristine', 
+                                          '*.svn-base', 'tmp', '*wc.db*', '*svn*']
         self._case_sensitive = False
+        self._ignore_directories=False
 
     def process(self, event):
         if event.event_type == 'modified':
@@ -107,8 +140,19 @@ class watchdogHandler(PatternMatchingEventHandler):
         self.process(event)
 
 import argparse
+def default_command_init():
+    commands = {
+                    "USER_PATH" : "/media/basavam/autocommit/sw",
+                    "DEST"      : "http://10.246.128.9/svnserintf/Standard/Validation/IP/sw/",
+                    "IGNORE"    : "*.swp " "*.swx " "*.swa ",
+                    "RECURSIVE" : "yes",
+                    "FORCE"     :"no",
+                    "SLEEP"     :60
+                }
+    return commands
 
-def get_args():
+
+def get_user_args():
     phrase = argparse.ArgumentParser(description='SVN autocommit tool')
     phrase.add_argument(
         '-p', '--path', type=str, help='user source path')
@@ -125,7 +169,7 @@ def get_args():
     args = phrase.parse_args()
     return args
 
-def set_args(usr_cmds, deflt_cmds):
+def set_user_args(usr_cmds, deflt_cmds):
     if usr_cmds.destination != None:
         deflt_cmds["USER_PATH"] = usr_cmds.path
     if usr_cmds.destination != None:
@@ -140,54 +184,68 @@ def set_args(usr_cmds, deflt_cmds):
         deflt_cmds["SLEEP"] = usr_cmds.sleep
     return deflt_cmds
 
-def svn_sanity_check(user_path, server_path):
+def args_sanity_check(command):
     try:
-        os.chdir(user_path)
+        os.chdir(command["USER_PATH"])
     except Exception:
         msg = "SVN Autocommit: user path not exists"
         Failure = True
-        Error_code  = 81.0
+        Error_Code  = 81.0
+        Warning_Code_list = None
         return Module_ReturnValue(Failure, msg, Error_Code, Warning_Code_list)
 
     try:
-        os.system("svn info " + server_path)
+        os.system("svn info " + command["DEST"])
     except Exception:
         msg = "SVN Autocommit: SVN path not exist"
         Failure = True
-        Error_code  = 81.1
+        Error_Code  = 81.1
+        Warning_Code_list = None
         return Module_ReturnValue(Failure, msg, Error_Code, Warning_Code_list)
 
+    if (command["IGNORE"] != "yes" and command["IGNORE"] != "no"):
+        msg = "SVN Autocommit: Invalid --ignore value"
+        Failure = True
+        Error_Code  = 81.2
+        Warning_Code_list = None
+        return Module_ReturnValue(Failure, msg, Error_Code, Warning_Code_list)
 
-def app_init():
-    commands = {
-                    "USER_PATH" : "/media/basavam/autocommit/sw",
-                    "DEST"      : "http://10.246.128.9/svnserintf/Standard/Validation/IP/sw/",
-                    "IGNORE"    : "*.swp " "*.swx " "*.swa " ".svn",
-                    "RECURSIVE" : "yes",
-                    "FORCE"     :"no",
-                    "SLEEP"     :60
-                }
-    return commands
+    if (command["FORCE"] != "yes" and command["FORCE"] != "no"):
+        msg = "SVN Autocommit: Invalid --force value"
+        Failure = True
+        Error_Code  = 81.3
+        Warning_Code_list = None
+        return Module_ReturnValue(Failure, msg, Error_Code, Warning_Code_list)
+
+    if (command["RECURSIVE"] != "yes" and command["RECURSIVE"] != "no"):
+        msg = "SVN Autocommit: Invalid --recursive value"
+        Failure = True
+        Error_Code  = 81.3
+        Warning_Code_list = None
+        return Module_ReturnValue(Failure, msg, Error_Code, Warning_Code_list)
+    return command
+
+
 
 def svn_main():
-    deflt_cmds = app_init()
-    
+    deflt_cmds = default_command_init()
     try:
-         usr_cmds = get_args()
+         usr_cmds = get_user_args()
     except Exception:
         msg = "SVN Autocommit: Error in command phrasing"
         Failure = True
-        Error_code  = 80.0
+        Error_Code  = 80.0
+        Warning_Code_list = None
         return Module_ReturnValue(Failure, msg, Error_Code, Warning_Code_list)
 
-    commands = set_args(usr_cmds, deflt_cmds)
+    commands = set_user_args(usr_cmds, deflt_cmds)
+    global gCommands
+    gCommands = args_sanity_check(commands)
 
-    svn_sanity_check(commands["USER_PATH"], commands["DEST"])
+    svn_app_init(commands)
 
-    svn_init(commands["USER_PATH"], commands["DEST"])
     event_handler = watchdogHandler()
     observer = Observer()
-
     try:
         observer.schedule(event_handler, 
 			path = commands["USER_PATH"],
@@ -195,7 +253,7 @@ def svn_main():
     except Exception:
         msg = "SVN Autocommit: Error in job scheduling"
         Failure = True
-        Error_code  = 82.0
+        Error_Code  = 82.0
         return Module_ReturnValue(Failure, msg, Error_Code, Warning_Code_list)
 
     observer.start()
@@ -204,8 +262,5 @@ def svn_main():
     observer.join()
 
 #While writing CLI enable below comments
-
-"""
 if __name__ == "__main__":
     svn_main() 
-"""
