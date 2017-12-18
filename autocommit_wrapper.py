@@ -19,3 +19,10 @@ elif os_name == 'Windows':
     os.system(cmd)
 else:
     print "Implimented for Linux and Winows only"
+
+
+def kill_svn():
+    if os_name == 'Linux':
+        os.system("kill $(ps aux | grep autocommit.py | awk '{ print $2 }')")
+    elif os_name == 'Windows':
+        os.system("taskkill /f /im  autocommit.py")
