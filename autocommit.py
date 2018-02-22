@@ -6,11 +6,10 @@ import socket
 import os
 import subprocess
 
-
 from watchdog.observers import Observer
 from watchdog.events import FileSystemEventHandler
 from watchdog.events import PatternMatchingEventHandler
-
+        
 class Module_ReturnValue(object):
     def __init__(self, Status, Message, Error_Code, Warning_Codes):
         self.Status = Status
@@ -57,8 +56,10 @@ def svn_add(src_path):
     global gCommands
     hostname = socket.gethostname()
     osused = platform.system()
+    print "svn add soruce path "
+    print src_path
     #TODO:
-    #cmd = "svn add " + FORCE(gCommands)+ RECURSIVE(gCommands) + src_path
+    #cmd = "svn add: FORCE(gCommands)+ RECURSIVE(gCommands) + src_path
     cmd = "svn add --force " + src_path
     retval = os.system(cmd)
     return retval
@@ -75,14 +76,23 @@ def svn_remove(src_path):
     return retval
 
 def svn_checkout(src_path):
-    #TODO: Check it we need to enter directory or not
-    retval = os.system("svn chekout " + src_path)
+    retval = os.system("svn checkout " + src_path + " .")
     print "SVN chekout:", retval
     return retval
 
 def svn_up(command):
+    os.chdir(command["USER_PATH"])
     cmd = "svn up " +  command["USER_PATH"] + FORCE(command)
-    retval = os.system(cmd)
+    
+    try:
+        retval = os.system(cmd)      
+    except Exception:
+        svn_checkout(command["DEST"])
+        if retval == "E155037":
+            os.system("svn cleanup")
+        elif retval == "E155007":
+            svn_checkout(command["DEST"])
+            
     print "svn up:", retval
     return retval 
 
@@ -96,13 +106,16 @@ def svn_ignore(command):
 
 def svn_app_init(command):
     os.chdir(command["USER_PATH"])
-    try:
-        os.system("svn info")
-        print "SVN autocmmit: Updating local repo"
-        svn_up(command)
-    except Exception:
+    retval = os.system("svn info")
+    if retval != 0:                     # if there is unsucessfull in svn info 
         print "SVN autocommit: Creating local repo"
         svn_checkout(command["DEST"])
+        
+    retval = svn_up(command)
+    print "SVN autocommit: Updating local repo"
+    if retval != 0:
+        print "Failure in svn up"
+        return retval
     svn_ignore(command)
 
 class watchdogHandler(PatternMatchingEventHandler):
@@ -142,13 +155,14 @@ class watchdogHandler(PatternMatchingEventHandler):
 import argparse
 def default_command_init():
     commands = {
-                    "USER_PATH" : "/media/basavam/autocommit/sw",
-                    "DEST"      : "http://10.246.128.9/svnserintf/Standard/Validation/IP/sw/",
+                    "USER_PATH" : "D:/Python/sw",
+                    "DEST"      : "http://cosmicsvn/svnserintf/Standard/Validation/IP/sw/",
                     "IGNORE"    : "*.swp " "*.swx " "*.swa ",
                     "RECURSIVE" : "yes",
                     "FORCE"     :"no",
                     "SLEEP"     :60
                 }
+    
     return commands
 
 
@@ -228,7 +242,9 @@ def args_sanity_check(command):
 
 
 def svn_main():
+    print "Welcome to autocommit"
     deflt_cmds = default_command_init()
+    print deflt_cmds
     try:
          usr_cmds = get_user_args()
     except Exception:
@@ -241,8 +257,10 @@ def svn_main():
     commands = set_user_args(usr_cmds, deflt_cmds)
     global gCommands
     gCommands = args_sanity_check(commands)
+    print gCommands
 
     svn_app_init(commands)
+    print "svn app: Init done successfull"
 
     event_handler = watchdogHandler()
     observer = Observer()
