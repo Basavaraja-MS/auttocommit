@@ -3,15 +3,14 @@ import platform
 import os
 
 os_name = platform.system()
-
-#chekc of svn installed in winodws and Linux 
-#chekc for watchdog and argparse 
-#In windows set python path 
+nohuplogs = 1     #To not generate nohup output
 
 #cmd = nohup python -c "import autocommit as a; a.svn_main()" &
 cmd = "python autocommit &"
 if os_name == 'Linux':
     cmd = "nohup python autocommit.py &"
+    if nohuplogs == 1:
+        cmd = "nohup python autocommit.py >/dev/null 2>&1 &"
     os.system(cmd)
 elif os_name == 'Windows':
     #os.system("pythonw -c "import autocommit as a; a.svn_main()"")

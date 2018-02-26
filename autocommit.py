@@ -86,7 +86,7 @@ def svn_up(command):
         retval = subprocess.call(["svn", "up", command["USER_PATH"], FORCE(command)], stdout=logfile)      
     except Exception:
         svn_checkout(command["DEST"])
-        if retval == "E155037":
+        if retval == "E155037" or retval == "E155011":
             subprocess.call(["svn", "cleanup"], stdout=logfile)
         elif retval == "E155007":
             svn_checkout(command["DEST"])
@@ -153,7 +153,8 @@ def default_command_init():
                     "IGNORE"    :"*.swp " "*.swx " "*.swa ",
                     "RECURSIVE" :"yes",
                     "FORCE"     :"no",
-                    "SLEEP"     :60
+                    "SLEEP"     :60,
+                    "STAND_ALONE" : 0
                 }
     
     return commands
@@ -172,6 +173,9 @@ def get_user_args():
         '-f', '--force', type=str, help='Enable forced operations [default --force=yes]')
     phrase.add_argument(
         '-s', '--sleep', type=int, help='Sleep time in ms [default --sleep=60]')
+    phrase.add_argument(
+        '-w', '--standalone', type=int, help='Stand alone mode, without watchdog timer [default --standalone=0]')
+    
     args = phrase.parse_args()
     return args
 
@@ -251,22 +255,23 @@ def svn_main():
 
     svn_app_init(commands)
 
-    event_handler = watchdogHandler()
-    observer = Observer()
-    try:
-        observer.schedule(event_handler, 
-			path = commands["USER_PATH"],
-			recursive=True)
-    except Exception:
-        msg = "SVN Autocommit: Error in job scheduling"
-        Failure = True
-        Error_Code  = 82.0
-        return Module_ReturnValue(Failure, msg, Error_Code, Warning_Code_list)
+    if commands["STAND_ALONE"] == 0:
+        event_handler = watchdogHandler()
+        observer = Observer()
+        try:
+            observer.schedule(event_handler,
+                              path = commands["USER_PATH"],
+                              recursive=True)
+        except Exception:
+            msg = "SVN Autocommit: Error in job scheduling"
+            Failure = True
+            Error_Code  = 82.0
+            return Module_ReturnValue(Failure, msg, Error_Code, Warning_Code_list)
 
-    observer.start()
-    while True:
-        time.sleep(60)
-    observer.join()
+        observer.start()
+        while True:
+            time.sleep(60)
+        observer.join()
 
 #While writing CLI enable below comments
 if __name__ == "__main__":
