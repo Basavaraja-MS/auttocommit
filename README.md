@@ -25,6 +25,8 @@ wrapper functions
 To use functions in stand alone mode i.e without running on background interrupt functions,
 change dictonary value of command["STAND_ALONE"] to "yes" where by default its "no".
 
+
+
  For running in background
  * Windows:
    "pythonw autocommit.py" 
@@ -35,13 +37,24 @@ change dictonary value of command["STAND_ALONE"] to "yes" where by default its "
 
 TODO:
  1. set the PATH in windows environment for python running 
+	* Give these instructions to user
  2. Test 'taskkill' in Windows 
+	* Tested working successfully 
  3. Passing "command" dictnory from the wrapper functions 
+	* Yash will take care 
  4. Testing CLI commands in windows --- Low priority
+	* Done working fine 
  6. rm -rf /path/ results error impliment SVN cleanup once recived a error  -- Low priority
- 7. Add a switch to not produce nohup.out file in linux 
+	* Yet to work on this 
+ 7. Add a switch to not produce nohup.out file in linux
+	* TODO 
  8. Analise stored TEXT logs in Windows
+	* TODO:
  9. If passowrd experise throw the Exception message
+	* Working on now 
 10. Impliment ignore_patterns macros for wathcdoghandler
+	* Very low priority 
 11. Add dictionary word for command["STAND_ALONE"] to disable watchdog timer
+	* Implimnet it now 
 12. Make uinque way of passing variables to functions
+	* Sorry what it is ?

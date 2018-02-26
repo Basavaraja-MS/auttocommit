@@ -5,10 +5,13 @@ import platform
 import socket
 import os
 import subprocess
+import argparse
 
 from watchdog.observers import Observer
 from watchdog.events import FileSystemEventHandler
 from watchdog.events import PatternMatchingEventHandler
+
+logfile = open("logfile.txt", "w")
         
 class Module_ReturnValue(object):
     def __init__(self, Status, Message, Error_Code, Warning_Codes):
@@ -22,30 +25,26 @@ def github_chekin():
     osused = platform.system()
     os.chdir(user_path)
 #TODO: User name and passowrd needs to add it 
-    os.system("git config --global user.name \"Basavaraja-MS\"")
-    os.system("git config --global user.name")
-    retval = os.system("pwd")
-    retval = os.system("git add *")
-    retval = os.system("git commit -m \"'hostname' 'osused' \"")
-    retval = os.system("git push -f")
-    print retval 
+    subprocess.call(["git", "config", "--global", "user.name", "\"Basavaraja-MS\""])
+    subprocess.call(["git", "config", "--global", "user.name"])
+    retval = subprocess.call(["pwd"])
+    retval = subprocess.call(["git", "add", "*"])
+    retval = subprocess.call(["git", "commit", "-m", "hostname", "osused"])
+    retval = subprocess.call(["git", "push", "-f"]) 
 
 def FORCE(command):
-    print "Comming"
     if command["FORCE"] == "yes":
-        print "Comming here and crash"
-        return " --force "
+        return "--force"
     else:
         return ""
 
 def RECURSIVE(command):
     if command["RECURSIVE"] == "yes":
-        return " --recursive "
+        return "--recursive"
     else:
         return ""
 
 def svn_checkin(src_path):
-    print "Checkin:"
     hostname = socket.gethostname()
     osused = platform.system()
     message = "Host: " + hostname + "OS: " + osused 
@@ -56,12 +55,10 @@ def svn_add(src_path):
     global gCommands
     hostname = socket.gethostname()
     osused = platform.system()
-    print "svn add soruce path "
-    print src_path
     #TODO:
     #cmd = "svn add: FORCE(gCommands)+ RECURSIVE(gCommands) + src_path
-    cmd = "svn add --force " + src_path
-    retval = os.system(cmd)
+    #cmd = "svn add --force " + src_path
+    retval = subprocess.call(["svn", "add", "--force", src_path], stdout=logfile)
     return retval
 
 def svn_remove(src_path):
@@ -70,57 +67,51 @@ def svn_remove(src_path):
     osused = platform.system()
     #TODO:
     #cmd = "svn del " + FORCE(gCommands) + src_path
-    cmd = "svn del --force " + src_path
-    retval = os.system(cmd)
-    print"svn del:", retval
+    #cmd = "svn del --force " + src_path
+    retval = subprocess.call(["svn", "del", "--force", src_path], stdout=logfile)
+    retval = svn_checkin(src_path)
+    #retval = subprocess.call(["svn", "ci", src_path, "--force"], stdout=logfile)
     return retval
 
 def svn_checkout(src_path):
-    retval = os.system("svn checkout " + src_path + " .")
-    print "SVN chekout:", retval
+    retval = subprocess.call(["svn", "checkout", src_path, "."], stdout=logfile)
     return retval
 
 def svn_up(command):
+    retval = 0
     os.chdir(command["USER_PATH"])
-    cmd = "svn up " +  command["USER_PATH"] + FORCE(command)
+    #cmd = "svn up " +  command["USER_PATH"] + FORCE(command)
     
     try:
-        retval = os.system(cmd)      
+        retval = subprocess.call(["svn", "up", command["USER_PATH"], FORCE(command)], stdout=logfile)      
     except Exception:
         svn_checkout(command["DEST"])
         if retval == "E155037":
-            os.system("svn cleanup")
+            subprocess.call(["svn", "cleanup"], stdout=logfile)
         elif retval == "E155007":
             svn_checkout(command["DEST"])
-            
-    print "svn up:", retval
     return retval 
 
 
 def svn_ignore(command):
-    print "SVN autocommit: Ignored"
     for ignore_str in command["IGNORE"].split():
-        cmd = "svn propset svn:ignore " + ignore_str + " " + command["USER_PATH"] + FORCE(command) + RECURSIVE(command)
-        os.system(cmd)
+        #cmd = "svn propset svn:ignore " + ignore_str + " " + command["USER_PATH"] + FORCE(command) + RECURSIVE(command)
+        #os.system(cmd)
+        subprocess.call(["svn", "propset", "svn:ignore", ignore_str, command["USER_PATH"], FORCE(command), RECURSIVE(command)], stdout=logfile)
 
 
 def svn_app_init(command):
     os.chdir(command["USER_PATH"])
-    retval = os.system("svn info")
+    retval = subprocess.call(["svn", "info"], stdout=logfile)
     if retval != 0:                     # if there is unsucessfull in svn info 
-        print "SVN autocommit: Creating local repo"
         svn_checkout(command["DEST"])
         
     retval = svn_up(command)
-    print "SVN autocommit: Updating local repo"
     if retval != 0:
-        print "Failure in svn up"
         return retval
     svn_ignore(command)
 
 class watchdogHandler(PatternMatchingEventHandler):
-#TODO: Need to check and change
-
     def __init__(self):
         self._patterns = None
         self._ignore_patterns = ["*.swp", "*.swx", 'entries', 'format', 'pristine', 
@@ -130,19 +121,22 @@ class watchdogHandler(PatternMatchingEventHandler):
 
     def process(self, event):
         if event.event_type == 'modified':
-            print 'Modified', event.src_path
             svn_checkin(event.src_path)
         elif event.event_type == 'created':
-            print 'Created', event.src_path
             svn_add(event.src_path)
         elif event.event_type == 'moved': 
-            print 'Moved', event.src_path
+            #TODO: File rename is not implimented yet
+            svn_add(" * ")
         elif event.event_type == 'deleted':
-            print 'Deleted', event.src_path
             svn_remove(event.src_path)
         else:
             print "Error in", event.event_type
-
+            msg = "SVN autocommit: Error in watchdogHandler"
+            Failure = True
+            Error_Code  = 85.0
+            Warning_Code_list = None
+            return Module_ReturnValue(Failure, msg, Error_Code, Warning_Code_list)
+			
     def on_modified(self, event):
         self.process(event)
     def on_created(self, event):
@@ -152,19 +146,17 @@ class watchdogHandler(PatternMatchingEventHandler):
     def on_deleted(self, event):
         self.process(event)
 
-import argparse
 def default_command_init():
     commands = {
-                    "USER_PATH" : "D:/Python/sw",
-                    "DEST"      : "http://cosmicsvn/svnserintf/Standard/Validation/IP/sw/",
-                    "IGNORE"    : "*.swp " "*.swx " "*.swa ",
-                    "RECURSIVE" : "yes",
+                    "USER_PATH" :"D:/Python/sw",
+                    "DEST"      :"http://cosmicsvn/svnserintf/Standard/Validation/IP/sw/",
+                    "IGNORE"    :"*.swp " "*.swx " "*.swa ",
+                    "RECURSIVE" :"yes",
                     "FORCE"     :"no",
                     "SLEEP"     :60
                 }
     
     return commands
-
 
 def get_user_args():
     phrase = argparse.ArgumentParser(description='SVN autocommit tool')
@@ -175,11 +167,11 @@ def get_user_args():
     phrase.add_argument(
         '-i', '--ignore', type=str, help='Files to be ignored')
     phrase.add_argument(
-        '-r', '--recursive', type=str, help='Recursive search enabled')
+        '-r', '--recursive', type=str, help='Recursive search enabled [default --recursive=yes]')
     phrase.add_argument(
-        '-f', '--force', type=str, help='Enable forced operations')
+        '-f', '--force', type=str, help='Enable forced operations [default --force=yes]')
     phrase.add_argument(
-        '-s', '--sleep', type=int, help='Sleep time in ms')
+        '-s', '--sleep', type=int, help='Sleep time in ms [default --sleep=60]')
     args = phrase.parse_args()
     return args
 
@@ -209,7 +201,7 @@ def args_sanity_check(command):
         return Module_ReturnValue(Failure, msg, Error_Code, Warning_Code_list)
 
     try:
-        os.system("svn info " + command["DEST"])
+        subprocess.call(["svn", "info", command["DEST"]], stdout=logfile)
     except Exception:
         msg = "SVN Autocommit: SVN path not exist"
         Failure = True
@@ -242,9 +234,8 @@ def args_sanity_check(command):
 
 
 def svn_main():
-    print "Welcome to autocommit"
+    print "CDNS autocommit"
     deflt_cmds = default_command_init()
-    print deflt_cmds
     try:
          usr_cmds = get_user_args()
     except Exception:
@@ -257,10 +248,8 @@ def svn_main():
     commands = set_user_args(usr_cmds, deflt_cmds)
     global gCommands
     gCommands = args_sanity_check(commands)
-    print gCommands
 
     svn_app_init(commands)
-    print "svn app: Init done successfull"
 
     event_handler = watchdogHandler()
     observer = Observer()
