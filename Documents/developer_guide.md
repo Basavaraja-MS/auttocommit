@@ -247,3 +247,17 @@ svn operations
         * Return value: None
 
         * Extension:
+
+
+List of error code and messages
+-------------------------------
+Error Code	Message
+---------	------
+80.0		SVN Autocommit: Error in command phrasing
+81.0		SVN Autocommit: user path not exists
+81.1		SVN Autocommit: SVN path not exist
+81.2		SVN Autocommit: Invalid --ignore value
+81.3		SVN Autocommit: Invalid --force value
+81.4		SVN Autocommit: Invalid --recursive value
+82.0		SVN Autocommit: Error in job scheduling
+85.0		SVN autocommit: Error in watchdogHandler
