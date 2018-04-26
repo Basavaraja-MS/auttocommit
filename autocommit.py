@@ -284,6 +284,7 @@ def svn_main(commands):
         observer.start()
         while not check_exit():
             time.sleep(commands["SLEEP"])
+	observer.stop()
         observer.join()
 	static_var.stop = 0
 
