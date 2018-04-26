@@ -229,7 +229,7 @@ def args_sanity_check(command):
     if (command["RECURSIVE"] != "yes" and command["RECURSIVE"] != "no"):
         msg = "SVN Autocommit: Invalid --recursive value"
         Failure = True
-        Error_Code  = 81.3
+        Error_Code  = 81.4
         Warning_Code_list = None
         return Module_ReturnValue(Failure, msg, Error_Code, Warning_Code_list)
     return command
