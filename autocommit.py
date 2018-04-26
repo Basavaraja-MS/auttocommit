@@ -156,7 +156,6 @@ def default_command_init():
                     "SLEEP"     :60,
                     "STAND_ALONE" : 0
                 }
-    
     return commands
 
 def get_user_args():
@@ -237,9 +236,12 @@ def args_sanity_check(command):
 
 
 
-def svn_main():
+def svn_main(commands):
     print "CDNS autocommit"
-    deflt_cmds = default_command_init()
+    if commands == NULL:
+        deflt_cmds = default_command_init(NULL)
+    else:
+        deflt_cmds = commands
     try:
          usr_cmds = get_user_args()
     except Exception:
@@ -270,9 +272,10 @@ def svn_main():
 
         observer.start()
         while True:
-            time.sleep(60)
+            time.sleep(commands["SLEEP"])
         observer.join()
 
 #While writing CLI enable below comments
 if __name__ == "__main__":
-    svn_main() 
+    commands = NULL
+    svn_main(commands) 
