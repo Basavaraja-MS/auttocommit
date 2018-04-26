@@ -11,6 +11,17 @@ from watchdog.observers import Observer
 from watchdog.events import FileSystemEventHandler
 from watchdog.events import PatternMatchingEventHandler
 
+class StaticVariable:
+	stop = 0
+
+static_var = StaticVariable()
+
+def check_exit():
+	return static_var.stop
+
+def stop_svn():
+	static_var.stop = 1 
+
 logfile = open("logfile.txt", "w")
         
 class Module_ReturnValue(object):
@@ -238,8 +249,8 @@ def args_sanity_check(command):
 
 def svn_main(commands):
     print "CDNS autocommit"
-    if commands == NULL:
-        deflt_cmds = default_command_init(NULL)
+    if commands == None:
+        deflt_cmds = default_command_init()
     else:
         deflt_cmds = commands
     try:
@@ -271,11 +282,12 @@ def svn_main(commands):
             return Module_ReturnValue(Failure, msg, Error_Code, Warning_Code_list)
 
         observer.start()
-        while True:
+        while not check_exit():
             time.sleep(commands["SLEEP"])
         observer.join()
+	static_var.stop = 0
 
 #While writing CLI enable below comments
 if __name__ == "__main__":
-    commands = NULL
+    commands = None
     svn_main(commands) 
